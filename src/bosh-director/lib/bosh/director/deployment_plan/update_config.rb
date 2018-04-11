@@ -1,9 +1,9 @@
 module Bosh::Director
   module DeploymentPlan
     class UpdateConfig
-      VM_STRATEGY_CREATE_SWAP_DELETE = 'create-swap-delete'.freeze
-      VM_STRATEGY_DELETE_CREATE = 'delete-create'.freeze
-      ALLOWED_VM_STRATEGY = [VM_STRATEGY_CREATE_SWAP_DELETE, VM_STRATEGY_DELETE_CREATE].freeze
+      VM_STRATEGY_DELETE_CREATE = ['strategy1', 'delete-create', 'slow', 'cheap', 'downtime-during-vm-deletion-and-creation'].freeze
+      VM_STRATEGY_CREATE_SWAP_DELETE = ['strategy2', 'create-swap-delete', 'fast', 'hotswap', 'downtime-only-during-swap-persistent-disk'].freeze
+      ALLOWED_VM_STRATEGY = (VM_STRATEGY_CREATE_SWAP_DELETE + VM_STRATEGY_DELETE_CREATE).freeze
 
       include ValidationHelper
 
@@ -86,7 +86,7 @@ module Bosh::Director
           'canary_watch_time' => "#{@min_canary_watch_time}-#{@max_canary_watch_time}",
           'update_watch_time' => "#{@min_update_watch_time}-#{@max_update_watch_time}",
           'serial' => serial?,
-          'vm_strategy' => @vm_strategy.nil? ? VM_STRATEGY_DELETE_CREATE : @vm_strategy,
+          'vm_strategy' => @vm_strategy.nil? ? VM_STRATEGY_DELETE_CREATE.first : @vm_strategy,
         }
       end
 
