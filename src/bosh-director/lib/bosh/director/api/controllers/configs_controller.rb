@@ -32,6 +32,17 @@ module Bosh::Director
             name: config_hash['name'],
             limit: 1,
           ).first
+          expected_latest_id = config_hash['expected_latest_id']&.to_s
+          config_id = config&.id&.to_s
+
+          if !expected_latest_id.nil? && config_id != expected_latest_id
+            status(412)
+            return json_encode(
+              'latest_id' => config_id,
+              'expected_latest_id' => expected_latest_id,
+              'description' => "Latest Id: '#{config_id}' does not match expected latest id",
+            )
+          end
 
           @permission_authorizer.granted_or_raise(config, :admin, token_scopes) unless config.nil?
 
@@ -54,8 +65,8 @@ module Bosh::Director
         schema1, schema2 = validate_diff_request(config_request)
 
         begin
-          old_config_hash, new_config_hash = load_diff_request(config_request, schema1, schema2)
-          json_encode(generate_diff(new_config_hash, old_config_hash))
+          old_config_hash, new_config_hash, from_id = load_diff_request(config_request, schema1, schema2)
+          json_encode(generate_diff(new_config_hash, old_config_hash).merge('from' => { 'id' => from_id&.to_s }))
         rescue BadConfig => error
           status(400)
           json_encode(
@@ -190,7 +201,7 @@ module Bosh::Director
 
         @permission_authorizer.granted_or_raise(old_config, :admin, token_scopes) unless old_config.nil?
 
-        [old_config_hash, new_config_hash]
+        [old_config_hash, new_config_hash, old_config&.id]
       end
 
       def validate_diff_request(config_request)
@@ -233,8 +244,9 @@ module Bosh::Director
           new_config = config_manager.find_by_id(config_request['to']['id'])
           @permission_authorizer.granted_or_raise(new_config, :admin, token_scopes)
           new_config_hash = new_config.raw_manifest
+          from_id = config_request['from']['id']
         elsif schema2
-          old_config_hash, new_config_hash = contents_from_body_and_current(config_request)
+          old_config_hash, new_config_hash, from_id = contents_from_body_and_current(config_request)
         else
           raise BadConfigRequest,
                 %(Only two request formats are allowed:\n) +
@@ -242,7 +254,7 @@ module Bosh::Director
                 %(2. {"type":"<type>","name":"<name>","content":"<content>"})
         end
 
-        [old_config_hash, new_config_hash]
+        [old_config_hash, new_config_hash, from_id]
       end
 
       def generate_diff(new_config_hash, old_config_hash)
